@@ -60,7 +60,6 @@ load("~/erhverv_abt.rda")
   ggtitle("Fraudulent companies over time")
 ```
 
-
 ---
 # Training a single model with 'caret'
 
@@ -221,4 +220,17 @@ Train models and display results:
 ```{r message = FALSE, warning = FALSE, fig.height = 4, fig.align = "center", dev = 'svg'}
 credit_default_models <- train(credit_default_models)
 credit_default_models$model_fits %>% resamples(.) %>% bwplot(.)
+```
+
+---
+# Tax Fraud Detection - Training results
+
+```{r fig.align = "center", fig.height = 6, fig.width = 8, dev = 'svg', echo = FALSE}
+roc <- readRDS("~/earl_roc.rds")
+
+p <- ggplot2::ggplot(roc, ggplot2::aes(x=model, y=ROC)) +
+  ggplot2::geom_boxplot() +
+  ggplot2::coord_flip()
+
+p
 ```
