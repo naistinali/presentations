@@ -28,6 +28,7 @@ options(htmltools.dir.version = FALSE)
 
 # About Me
 
+.pull-left[
 - Data Scientist working at the Danish Tax Authority
 
 - Apply predictive modelling to detect tax fraud
@@ -35,10 +36,14 @@ options(htmltools.dir.version = FALSE)
 - Author of the **modelgrid** R package
 
 - Active blogger on R-bloggers
+]
 
+.pull-right[
 <figure>
   <img src= "larsk.png" height = "250", align = "right">
 </figure>
+]
+
 
 ---
 background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
@@ -111,9 +116,9 @@ Organize and keep track of all of our experiments with different models, preproc
 
 ## Aim
 
-- Develop a pipe-friendly framework to construct, manage and train multiple **caret** models.
+- Develop a pipe-friendly framework to construct, manage and train multiple **caret** models
 
-- Require only a bare minimum of code. 
+- Require only a bare minimum of code
 
 ---
 background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
@@ -122,17 +127,23 @@ background-size: 15%
 
 # 'modelgrid' Workflow
 
+.pull-left[
 The model grid workflow is divided in three steps
 
 1. Set settings that will apply to all models by default
+
 2. Add individual model specifications
+
 3. Train the models that result from combining the above
 
-Save everything in an object belonging to class *model_grid*.
+Save everything in an object belonging to the *model_grid* class
+]
 
+.pull-right[
 <figure>
   <img src = "mglogo.png", align = "right">
 </figure>
+]
 
 ---
 background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
@@ -166,7 +177,7 @@ background-size: 15%
 
 # A 'modelgrid' Example 2/3
 
-Add individual model specifications to the model grid.
+Add individual model specifications to the model grid
 
 First add a Random Forest model
 ```{r}
@@ -209,20 +220,22 @@ background-size: 15%
 
 # Use 'recipes' for Preprocessing
 
+.pull-left[
 - Treat data preprocessing as an integral part of the model development
-
 <!-- , it is obvious to include this as part of models spanned by a model grid. -->
-
 - Do this by leveraging model grid with the **recipes** package
 
 - With **recipes** you specify a recipe consisting of preprocessing steps, that can be estimated
 and applied to any dataset
 
 - Requires almost no code
+]
 
+.pull-right[
 <figure>
-  <img src= "https://raw.githubusercontent.com/tidymodels/recipes/master/recipes_hex_thumb.png" height = "250", align = "right">
+  <img src= "https://raw.githubusercontent.com/tidymodels/recipes/master/recipes_hex_thumb.png" height = "250">
 </figure>
+]
 
 ---
 background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
