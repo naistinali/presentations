@@ -44,34 +44,6 @@ options(htmltools.dir.version = FALSE)
 </figure>
 ]
 
-
----
-background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
-background-position: 95% 5%
-background-size: 15%
-
-# Tax Fraud Detection
-
-- 8,000 tax audits of companies
-
-- 1 out of 10 companies were found to be *fraudulent*
-
-- 150 features
-
-- Predict which companies are fraudulent
-
-- Binary classification problem
-
-```{r compliance_modspillere, echo = FALSE, fig.align = "center", fig.height = 3, fig.width = 7, dev = 'svg'}
-load("~/erhverv_abt.rda")
-  abt %>%
-  mutate(year = aar,
-         Fraudulent = ifelse(klasse == "MS", "Fraudulent", "Not fraudulent")) %>%
-  ggplot(aes(year)) +
-  geom_bar(aes(fill = Fraudulent)) +
-  ggtitle("Fraudulent companies over time")
-```
-
 ---
 background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
 background-position: 95% 5%
@@ -101,7 +73,7 @@ Then set all other model options and train model
 ```{r, eval = FALSE, message = FALSE, warning = FALSE, results = 'hide'}
 model <- train(y = GermanCredit %>% pull(Class),
                x = GermanCredit %>% select(-Class),
-               method = "rf",
+               method = "rf", metric = "ROC",
                tuneGrid = data.frame(mtry = c(3, 10, 20)),
                trControl = tr_control)
 ```
@@ -310,6 +282,32 @@ Train models and display results
 ```{r message = FALSE, warning = FALSE, fig.height = 4, fig.align = "center", dev = 'svg'}
 credit_default_models <- train(credit_default_models)
 credit_default_models$model_fits %>% resamples(.) %>% bwplot(.)
+```
+---
+background-image: url(https://gallery.mailchimp.com/0e82143a3b79c87c8c43149b4/images/3f373e45-bc8b-4b80-a0cf-958bd9300778.png)
+background-position: 95% 5%
+background-size: 15%
+
+# Tax Fraud Detection
+
+- 8,000 tax audits of companies
+
+- 1 out of 10 companies were found to be *fraudulent*
+
+- 150 features
+
+- Predict which companies are fraudulent
+
+- Binary classification problem
+
+```{r compliance_modspillere, echo = FALSE, fig.align = "center", fig.height = 3, fig.width = 7, dev = 'svg'}
+load("~/erhverv_abt.rda")
+  abt %>%
+  mutate(year = aar,
+         Fraudulent = ifelse(klasse == "MS", "Fraudulent", "Not fraudulent")) %>%
+  ggplot(aes(year)) +
+  geom_bar(aes(fill = Fraudulent)) +
+  ggtitle("Fraudulent companies over time")
 ```
 
 ---
