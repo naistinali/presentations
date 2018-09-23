@@ -87,8 +87,9 @@ predictors %>%
 ```
 
 From the graph it seems, that there are groups of predictors, that have strong 
-positive correlations (dark blue).
+positive correlations (dark blue), i.e. "collinearity clusters".
 
+NÅET HERTIL!!!!!!!
 
 in fact clusters of correlated predictors. This
 suggests, that we should at least try out techniques, that mitigates correlated
