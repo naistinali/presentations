@@ -1,0 +1,292 @@
+---
+  title: "Tune your data preprocessing pipeline with recipes and modelgrid"
+output: html_notebook
+---
+  
+  ```{r, include = FALSE, message = FALSE, warning = FALSE}
+library(dplyr)
+library(magrittr)
+library(purrr)
+```
+
+## Data preprocessing is an integral part of a model configuration
+
+Model tuning is not just a matter of tuning the internal hyper parameters
+of an algorithm. Data preprocessing is an integral part of the model development
+workflow. It is therefore just as relevant to experiment with different
+data preprocessing options, and hence the process of choosing the data preprocessing
+pipeline can be thought of as part of the model tuning just as well. I want to
+emphasize this point, even though it is obvious, because it is often overlooked.
+
+In this post I will go through, how experiments with data preprocessing 
+can be organized within a model development workflow in a structured way -
+  using a minimum of code. In a sense what I will attempt to do is to "tune" the 
+data preprocessing building stones of a model configuration.
+
+The following packages (all available on CRAN) will be applied in combination.
+
+* [`caret`](https://cran.r-project.org/web/packages/caret/index.html) for model
+training.
+* [`recipes`](https://cran.r-project.org/web/packages/recipes/index.html) to 
+handle data preprocessing.
+* [`modelgrid`](https://cran.r-project.org/web/packages/modelgrid/index.html)
+for organizing experiments.
+
+## Use case: Cell Segmentation data
+
+I will use the Cell Segmentation data set described in the excellent book 
+[**'Applied Predictive Modelling'**](http://appliedpredictivemodeling.com/) as 
+an example.
+
+```{r}
+library(AppliedPredictiveModeling)
+data(segmentationOriginal)
+```
+
+The data set consists of `r nrow(segmentationOriginal)` samples, where each
+sample represents a cell. Of these cells,
+`r sum(segmentationOriginal$Class == "PS")` were judged to be poorly segmented
+and `r sum(segmentationOriginal$Class == "WS")` were well segmented; 
+`r sum(segmentationOriginal$Case == "Train")` cells were reserved for the
+training set.
+
+In each cell there has been taken `r segmentationOriginal %>% 
+  select(-c("Class", "Case", "Cell")) %>% ncol(.)` measurements that are all 
+available as numeric predictors.
+
+For more information on the data set look [here](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-340).
+
+Our goal is to develop a classification model, that separates the poorly 
+segmented from the well segmented cells.
+
+### Data at a glance
+
+First, let us take a quick look at the data by inspecting the correlation 
+between the predictors.
+
+```{r message = FALSE, warning = FALSE}
+# Extract training data.
+training <- filter(segmentationOriginal, Case == "Train")
+
+# Extract predictors.
+predictors <- training %>% select(-(c("Class", "Case", "Cell"))) 
+
+# Identify variables with zero variance.
+zero_variance_predictors <- map_lgl(predictors, ~ length(unique(.x)) == 1)
+
+# Remove predictors with zero variance.
+predictors <- predictors[, !zero_variance_predictors]
+
+# Compute and plot correlation matrix of remaining predictors.
+library(corrplot)
+predictors %>%
+  cor(.) %>%
+  corrplot(., order = "hclust", tl.cex = .35)
+```
+
+From the graph it seems, that there are in fact clusters of correlated predictors. This
+suggests, that we should at least try out techniques, that mitigates correlated
+predictors, such as e.g. a correlation filter or Principal Component Analysis.
+
+### Create initial recipe
+
+First, let's set up the starting point for our data preprocessing pipeline in 
+our modeling experiments. For this purpose I apply the **awesome** `recipes` 
+package and create a - very basic - recipe, that will serve as an anchor for my
+model configurations.
+
+In this recipe I declare the roles of all variables and state, that variables
+with zero variances should be removed (not controversial).
+
+```{r}
+library(recipes)
+initial_recipe <- recipe(training) %>%
+add_role(Class, new_role = "outcome") %>%
+add_role(Cell, new_role = "id variable") %>%
+add_role(Case, new_role = "splitting indicator") %>%
+add_role(-Class, -Cell, -Case, new_role = "predictor") %>%
+step_zv(all_predictors())
+
+# tester <- function(k) {
+# corr_rec <- initial_recipe %>% step_corr(all_predictors(), threshold = k)
+# gg <- prep(corr_rec) %>% tidy(., 2)
+# nrow(gg)
+# }
+```
+
+You can 'prep' the recipe and get an impression of, what it is actually doing.
+It seems, it removes two of the predictors due to them having variances of zero.
+
+```{r}
+prep_rec <- prep(basic_recipe)
+tidy(prep_rec, 1)
+```
+
+### Set up a model grid
+
+In order to organize and structure my experiments with different data 
+preprocessing pipelines I apply my [`modelgrid`](https://github.com/smaakage85/modelgrid) 
+package, that offers [a framework for constructing, training and managing multiple
+`caret` models](http://smaakage85.netlify.com/2018/07/14/modelgrid-a-framework-for-creating-managing-and-training-multiple-models/).
+
+`modelgrid` separates the specification of (a number of) `caret` model(s) from
+the training/estimation of the model(s). By doing so, `modelgrid` follows the same 
+principles as the new promising package [`parsnip`](https://github.com/topepo/parsnip).
+
+Let's say, that we want to estimate a family of Random Forest models, all with different
+preprocessing pipelines. I have decided on the following conditions for the
+model training: 
+  
+  * Use a small tuning grid of 5 values for the 'mtry' parameter for each 
+model. 'mtry' is the number of variables randomly sampled as candidates at each
+split of the tree.
+* Apply a cross-validation resampling scheme with 5 folds.
+* Tune the models and measure performance with the standard and highly versatile 
+'Area Under the Curve' (AUC(/ROC)) metric. 
+
+I construct a **model_grid** and set the settings, that by default will apply 
+to all of my models, accordingly.
+
+```{r}
+library(modelgrid)
+
+models <- 
+  # create empty model grid with constructor function.
+  model_grid() %>%
+  # set shared settings, that will apply to all models by default.
+  share_settings(
+    data = training,
+    trControl = trainControl(method = "cv",
+                             number = 5,
+                             summaryFunction = twoClassSummary,
+                             classProbs = TRUE),
+    metric = "ROC",
+    method = "glm",
+    family = binomial(link = "logit")
+    # method = "rf",
+    # tuneLength = 5
+  )
+```
+
+Now we are ready to add individual model specifications, each with their own
+data preprocessing pipeline to the model grid.
+
+### Adding the first model specifications to the model grid
+
+Let's kick things off by adding the first model specification to my model grid. 
+In this configuration I just apply our initial recipe and do no further. I will
+refer to this model as 'baseline'.
+
+```{r}
+models <- models %>%
+add_model(model_name = "baseline", 
+x = initial_recipe)
+```
+
+Now let's try to apply a correlation filter in order to mitigate correlated
+predictors. This is done by extending the recipe with an additional step, that
+removes predictors, that have a correlation above some critical threshold.
+Furthermore I will try out different values for this threshold.
+
+```{r}
+models <- models %>%
+  add_model(model_name = "corr_.7", 
+            x = initial_recipe %>%
+              step_corr(all_predictors(), threshold = .7)) %>%
+  add_model(model_name = "corr_.8", 
+            x = initial_recipe %>%
+              step_corr(all_predictors(), threshold = .8)) %>%
+  add_model(model_name = "corr_.9", 
+            x = initial_recipe %>%
+              step_corr(all_predictors(), threshold = .9))
+```
+
+.. The construction of these model specifications could of course be parametrized, 
+and in deed it should, especially if you want to try out more values for for the 
+'threshold' parameter than just the three, that I have denoted here.
+
+Let's train the models and take a look at the results.
+
+```{r}
+# Train models.
+models <- train(models)
+# Display resampled performance statistics of the fitted models using standard 
+# functionality from the 'caret' package.
+models$model_fits %>% resamples(.) %>% bwplot(.)
+```
+
+How many predictors were removed in the different model configurations?
+
+```{r}
+models$model_fits[c("corr_.7", "corr_.8", "corr_.9")] %>%
+map(pluck(c("recipe", "term_info", "role"))) %>%
+map_int(~ sum(.x == "predictor"))
+```
+
+It seems like applying a correlation filter of 0.7 could be a good idea.
+
+### Dimensionality reduction with PCA
+
+Now, let's try a different approach and apply Principal Component Analysis for
+dimensionality reduction instead of a correlation filter. I do this by tweaking the
+initial recipe once again. Before actually conducting PCA the features are 
+centered and scale, which is completely standard.
+
+```{r}
+# extend recipe with centering and scaling steps.
+rec_center_scale <- initial_recipe %>%
+  step_center(all_predictors()) %>%
+  step_scale(all_predictors())
+
+# add model specifications with pca for dimensionality reduction.
+models <- models %>%
+  add_model(model_name = "pca_.75", 
+            x = rec_center_scale %>%
+              step_pca(all_predictors(), threshold = .75)) %>%
+  add_model(model_name = "pca_.85",
+            x = rec_center_scale %>%
+              step_pca(all_predictors(), threshold = .85)) %>%
+  add_model(model_name = "pca_.95",
+            x = rec_center_scale %>%
+              step_pca(all_predictors(), threshold = .95))
+```
+
+Train new models and display results.
+
+```{r}
+models <- train(models)
+models$model_fits %>% caret::resamples(.) %>% bwplot(.)
+```
+
+How many components were used for the different models?
+  
+  ```{r}
+models$model_fits[c("pca_.75", "pca_.85", "pca_.95")] %>%
+  map(pluck(c("recipe", "term_info", "role"))) %>%
+  map_int(~ sum(.x == "predictor"))
+```
+
+## Conclusions
+
+* Experimenting with the data preprocessing pipeline can be seen as part of the
+model tuning process.
+* These experiments can be conducted easily using R packages`recipes` and `caret` in
+combination with `modelgrid`.
+
+## What's next?
+
+I have been thinking about a good way to extend the functionality of `modelgrid` further
+in order to parametrize experiments with the parameters of the data preprocessing
+pipeline. But actually I am under the impression, that others are working on 
+developing similar functionality for tuning the parameters of the data preprocessing
+pipeline, but am I wrong here?
+  
+  Also I want `modelgrid` to support `parsnip` and be able to expose models in 
+a more 'tidy' way.
+
+Best,
+smaakagen
+
+
+
+
