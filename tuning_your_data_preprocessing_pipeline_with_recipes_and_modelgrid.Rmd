@@ -1,9 +1,9 @@
 ---
-  title: "Tune your data preprocessing pipeline with recipes and modelgrid"
+title: "Tune your data preprocessing pipeline with recipes and modelgrid"
 output: html_notebook
 ---
   
-  ```{r, include = FALSE, message = FALSE, warning = FALSE}
+```{r, include = FALSE, message = FALSE, warning = FALSE}
 library(dplyr)
 library(magrittr)
 library(purrr)
@@ -20,7 +20,7 @@ emphasize this point, even though it is obvious, because it is often overlooked.
 
 In this post I will go through, how experiments with data preprocessing 
 can be organized within a model development workflow in a structured way -
-  using a minimum of code. In a sense what I will attempt to do is to "tune" the 
+ using a minimum of code. In a sense what I will attempt to do is to "tune" the 
 data preprocessing building stones of a model configuration.
 
 The following packages (all available on CRAN) will be applied in combination.
@@ -32,7 +32,7 @@ handle data preprocessing.
 * [`modelgrid`](https://cran.r-project.org/web/packages/modelgrid/index.html)
 for organizing experiments.
 
-## Use case: Cell Segmentation data
+## Use case: Cell Segmentation in High-Content Screening
 
 I will use the Cell Segmentation data set described in the excellent book 
 [**'Applied Predictive Modelling'**](http://appliedpredictivemodeling.com/) as 
@@ -61,8 +61,10 @@ segmented from the well segmented cells.
 
 ### Data at a glance
 
-First, let us take a quick look at the data by inspecting the correlation 
-between the predictors.
+First, let us take a quick look at the data by inspecting the between-predictor
+correlations of the predictors as expressed by a correlation matrix of the 
+training data set.The variables are grouped according to their mutual
+correlations with a hierarchical clustering technique.
 
 ```{r message = FALSE, warning = FALSE}
 # Extract training data.
@@ -72,19 +74,23 @@ training <- filter(segmentationOriginal, Case == "Train")
 predictors <- training %>% select(-(c("Class", "Case", "Cell"))) 
 
 # Identify variables with zero variance.
-zero_variance_predictors <- map_lgl(predictors, ~ length(unique(.x)) == 1)
+zero_variance_predictors <- map_lgl(predictors, ~ n_distinct(.x) == 1)
 
 # Remove predictors with zero variance.
 predictors <- predictors[, !zero_variance_predictors]
 
-# Compute and plot correlation matrix of remaining predictors.
+# Compute and plot a correlation matrix of remaining predictors.
 library(corrplot)
 predictors %>%
   cor(.) %>%
   corrplot(., order = "hclust", tl.cex = .35)
 ```
 
-From the graph it seems, that there are in fact clusters of correlated predictors. This
+From the graph it seems, that there are groups of predictors, that have strong 
+positive correlations (dark blue).
+
+
+in fact clusters of correlated predictors. This
 suggests, that we should at least try out techniques, that mitigates correlated
 predictors, such as e.g. a correlation filter or Principal Component Analysis.
 
