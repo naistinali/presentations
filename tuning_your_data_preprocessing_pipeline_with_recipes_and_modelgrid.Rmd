@@ -264,7 +264,7 @@ more about the PCA technique [here](https://www-bcf.usc.edu/~gareth/ISL/ISLR%20F
 
 This approach can be tested by tweaking my initial data preprocessing
 recipe once again with a couple of additional steps. Before actually 
-conducting PCA features are centered and scale. This is completely
+conducting PCA, features are centered and scale. This is completely
 standard. 
 
 For the PCA transformation I vary the 'threshold' value, which
@@ -293,7 +293,7 @@ models <- models %>%
 
 Let us train the new model configurations and display results.
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 models <- train(models)
 models$model_fits %>% caret::resamples(.) %>% bwplot(.)
 ```
@@ -326,7 +326,7 @@ of as tuning parameters.
 
 ## What's next?
 
-I have been thinking about a good way to extend the functionality of `modelgrid` further
+I have been thinking about how to extend the functionality of `modelgrid` further
 in order to parametrize experiments with the parameters of the data preprocessing
 pipeline. But actually I was under the impression, that others are working on 
 developing similar functionality for tuning parameters of the data preprocessing
