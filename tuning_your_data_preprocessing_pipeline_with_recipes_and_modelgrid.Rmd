@@ -14,11 +14,10 @@ library(purrr)
 Model tuning is not just a matter of tuning the hyperparameters of an algorithm. 
 Since data preprocessing is also an integral part of the model development
 workflow, it is just as relevant to experiment with the data preprocessing pipeline.
-When "tuning" a model, the data preprocessing pipeline should therefore also be tuned.
 
 In this post I will go through, how experiments with data preprocessing 
-can be organized. In a sense what I will attempt to do is to "tune" the 
-data preprocessing building stones of a model configuration.
+can be organized. In a sense, I will attempt to "tune" the 
+data preprocessing building blocks of a model configuration.
 
 The following packages (all available on CRAN) will be applied in combination.
 
@@ -54,7 +53,7 @@ available as numeric predictors.
 For more information on the data set look [here](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-8-340).
 
 Our goal is to develop a classification model, that separates the poorly 
-segmented from the well segmented cells.
+segmented cells from the well segmented ones.
 
 ### Data at a glance
 
@@ -119,7 +118,7 @@ initial_recipe <- recipe(training) %>%
 ```
 
 You can 'prep' the recipe and get an impression of, what it is actually doing. 
-It seems, it removes two of the predictors due to them having variances of zero.
+It seems it removes two of the predictors because they have zero variance.
 
 ```{r}
 prep_rec <- prep(initial_recipe)
@@ -266,7 +265,7 @@ standard.
 
 For the PCA transformation I vary the 'threshold' value, which
 is the fraction of the total variance of the predictors that should be
-covered by the components. The higher the value of 'threshold', the
+explained by the components. The higher the value of the 'threshold', the
 higher the number of components used.
 
 ```{r}
@@ -299,7 +298,7 @@ Applying a data preprocessing pipeline with a PCA transformation
 capturing 95 pct. of the total variance of the set of predictors
 actually returns the highest resampled median value of AUC.
 
-You can look up, how many principal components that were
+You can look up, how many principal components were
 used in the different model configurations in order to account
 for the desired amount of total variance of the predictors.
 
@@ -310,14 +309,14 @@ models$model_fits[c("pca_.75", "pca_.85", "pca_.95")] %>%
 ```
 
 To summarize, adding a PCA transformation or a correlation filter
-to the data preprocessing pipeline seem like good ways of
+to the data preprocessing pipeline seem like a good way of
 dealing with the "collinearity clusters" in the data set.
 
 ## Conclusions
 
 * Experimenting with the data preprocessing pipeline can be seen as part of the
-model tuning process. Parameters of the data preprocessing pipeline can be thought
-of as tuning parameters.
+model tuning process. Parameters of the data preprocessing pipeline can be seen 
+as tuning parameters.
 * These kinds of experiments can be organized and conducted easily using R packages
 `recipes` and `caret` in combination with `modelgrid`.
 
@@ -331,7 +330,7 @@ pipeline. But actually I was under the impression, that others are working on
 developing similar functionality for tuning parameters of the data preprocessing
 pipeline. Am I wrong here? 
 * Support `parsnip`.
-* To expose models and model configurations from a model grid in a more 'tidy' way.
+* Expose models and model configurations in the model grid in a more 'tidy' way.
 
 Best,
 smaakagen
