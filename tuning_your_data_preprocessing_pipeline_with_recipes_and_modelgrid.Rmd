@@ -11,7 +11,7 @@ library(purrr)
 
 ## Data preprocessing is an integral part of a model configuration
 
-Model tuning is not just a matter of tuning the internal hyper parameters
+Model tuning is not just a matter of tuning the internal hyperparameters
 of an algorithm. Data preprocessing is an integral part of the model development
 workflow. It is therefore just as relevant to experiment with different
 data preprocessing options, and hence the process of choosing the data preprocessing
@@ -61,9 +61,9 @@ segmented from the well segmented cells.
 
 ### Data at a glance
 
-First, let us take a quick look at the data by inspecting the between-predictor
-correlations of the predictors as expressed by a correlation matrix of the 
-training data set.The variables are grouped according to their mutual
+First, let us take a quick look at the data. We will do that by inspecting the between-predictor
+correlations of the predictors expressed by a correlation matrix of the 
+training data set. The variables are grouped according to their mutual
 correlations with a hierarchical clustering technique.
 
 ```{r message = FALSE, warning = FALSE}
@@ -87,45 +87,45 @@ predictors %>%
 ```
 
 From the graph it seems, that there are groups of predictors, that have strong 
-positive correlations (dark blue), i.e. "collinearity clusters".
+positive correlations (dark blue).
 
-NÅET HERTIL!!!!!!!
+There can be good reasons for avoiding variables, that are highly correlated, some
+of them being (as stated in [**'Applied Predictive Modelling'**](http://appliedpredictivemodeling.com/)):
 
-in fact clusters of correlated predictors. This
-suggests, that we should at least try out techniques, that mitigates correlated
-predictors, such as e.g. a correlation filter or Principal Component Analysis.
+* Redundant/highly correlated predictors often add more complexity to the model
+than information they provide to the model
+* Mathematical disadvantages: can result in very unstable models (high variance), 
+numerical errors and inferior predictive performance.
+
+The aim of my modelling experiments will be to apply different preprocessing techniques
+in order to mitigate the potential pitfalls of the "collinearity clusters", that we
+are observing amongst the field of predictors.
 
 ### Create initial recipe
 
-First, let's set up the starting point for our data preprocessing pipeline in 
+First, let us set up a starting point for our data preprocessing pipeline in 
 our modeling experiments. For this purpose I apply the **awesome** `recipes` 
 package and create a - very basic - recipe, that will serve as an anchor for my
 model configurations.
 
-In this recipe I declare the roles of all variables and state, that variables
-with zero variances should be removed (not controversial).
+In this recipe I declare the roles of all variables in the data set and state, 
+that variables with zero variances should be removed.
 
 ```{r}
 library(recipes)
 initial_recipe <- recipe(training) %>%
-add_role(Class, new_role = "outcome") %>%
-add_role(Cell, new_role = "id variable") %>%
-add_role(Case, new_role = "splitting indicator") %>%
-add_role(-Class, -Cell, -Case, new_role = "predictor") %>%
-step_zv(all_predictors())
-
-# tester <- function(k) {
-# corr_rec <- initial_recipe %>% step_corr(all_predictors(), threshold = k)
-# gg <- prep(corr_rec) %>% tidy(., 2)
-# nrow(gg)
-# }
+  add_role(Class, new_role = "outcome") %>%
+  add_role(Cell, new_role = "id variable") %>%
+  add_role(Case, new_role = "splitting indicator") %>%
+  add_role(-Class, -Cell, -Case, new_role = "predictor") %>%
+  step_zv(all_predictors())
 ```
 
-You can 'prep' the recipe and get an impression of, what it is actually doing.
+You can 'prep' the recipe and get an impression of, what it is actually doing. 
 It seems, it removes two of the predictors due to them having variances of zero.
 
 ```{r}
-prep_rec <- prep(basic_recipe)
+prep_rec <- prep(initial_recipe)
 tidy(prep_rec, 1)
 ```
 
@@ -136,26 +136,25 @@ preprocessing pipelines I apply my [`modelgrid`](https://github.com/smaakage85/m
 package, that offers [a framework for constructing, training and managing multiple
 `caret` models](http://smaakage85.netlify.com/2018/07/14/modelgrid-a-framework-for-creating-managing-and-training-multiple-models/).
 
-`modelgrid` separates the specification of (a number of) `caret` model(s) from
+`modelgrid` separates the specification of a(ny number of) `caret` model(s) from
 the training/estimation of the model(s). By doing so, `modelgrid` follows the same 
-principles as the new promising package [`parsnip`](https://github.com/topepo/parsnip).
+principles as the new promising package [`parsnip`](https://github.com/topepo/parsnip),
+which is under construction.
 
-Let's say, that we want to estimate a family of Random Forest models, all with different
-preprocessing pipelines. I have decided on the following conditions for the
+Assume, that we want to estimate a family of Generalized Linear Models, all with different
+data preprocessing pipelines. I have decided on the following conditions for the
 model training: 
   
-  * Use a small tuning grid of 5 values for the 'mtry' parameter for each 
-model. 'mtry' is the number of variables randomly sampled as candidates at each
-split of the tree.
 * Apply a cross-validation resampling scheme with 5 folds.
-* Tune the models and measure performance with the standard and highly versatile 
+* Tune the models and measure performance using the standard and highly versatile 
 'Area Under the Curve' (AUC(/ROC)) metric. 
 
 I construct a **model_grid** and set the settings, that by default will apply 
 to all of my models, accordingly.
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 library(modelgrid)
+library(caret)
 
 models <- 
   # create empty model grid with constructor function.
@@ -170,8 +169,6 @@ models <-
     metric = "ROC",
     method = "glm",
     family = binomial(link = "logit")
-    # method = "rf",
-    # tuneLength = 5
   )
 ```
 
@@ -180,20 +177,26 @@ data preprocessing pipeline to the model grid.
 
 ### Adding the first model specifications to the model grid
 
-Let's kick things off by adding the first model specification to my model grid. 
-In this configuration I just apply our initial recipe and do no further. I will
-refer to this model as 'baseline'.
+We will kick things off by adding the first model specification to my model grid. 
+In this configuration I just apply our initial data preprocessing recipe and do 
+no further. I will refer to this model as 'baseline'.
 
 ```{r}
 models <- models %>%
-add_model(model_name = "baseline", 
-x = initial_recipe)
+  add_model(model_name = "baseline", 
+            x = initial_recipe)
 ```
 
-Now let's try to apply a correlation filter in order to mitigate correlated
-predictors. This is done by extending the recipe with an additional step, that
-removes predictors, that have a correlation above some critical threshold.
-Furthermore I will try out different values for this threshold.
+One way of dealing with the potential drawbacks of the observed "collinearity clusters"
+is to apply a correlation filter. The correlation filter poses a heuristic 
+approach to dealing with highly correlated predictors.
+It removes the predictors with the highest between-predictor correlations one at
+the time, until all between-predictor correlations are below some critical threshold.
+
+In order to so I extend my initial recipe with an additional step, that applies
+the correlation filter. Furthermore I will try out different values for the 
+between-predictor correlation threshold value of the filter, essentially
+treating it as a hyperparameter.
 
 ```{r}
 models <- models %>%
@@ -208,44 +211,74 @@ models <- models %>%
               step_corr(all_predictors(), threshold = .9))
 ```
 
-.. The construction of these model specifications could of course be parametrized, 
-and in deed it should, especially if you want to try out more values for for the 
-'threshold' parameter than just the three, that I have denoted here.
+The construction of these model specifications can - 
+and indeed should - be parametrized. Especially if you want to try
+out a wider range of values for the 'threshold' parameter than just 
+the three, that I have denoted here.
 
-Let's train the models and take a look at the results.
+Great, now we have a bunch of models specifications. We will train them
+right away and take a first look at the results.
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 # Train models.
-models <- train(models)
+models <- models %>% train(.)
 # Display resampled performance statistics of the fitted models using standard 
 # functionality from the 'caret' package.
 models$model_fits %>% resamples(.) %>% bwplot(.)
 ```
 
-How many predictors were removed in the different model configurations?
+Judging by the resampled AUC performance statistics it seems, that there 
+*could* be a case for applying a correlation filter on the set of 
+predictors. Apparently, the model with a correlation filter with a 
+between-predictor correlation threshold value of .7 added to the data 
+preprocessing pipeline yields the best median resampled AUC. Of the four models,
+this model is by far the least complex.
+
+We can see this by taking a look at the number of predictors, that
+were actually used in the final models (after removing variables
+with a correlation filter (if any)).
 
 ```{r}
-models$model_fits[c("corr_.7", "corr_.8", "corr_.9")] %>%
+models$model_fits %>%
 map(pluck(c("recipe", "term_info", "role"))) %>%
 map_int(~ sum(.x == "predictor"))
 ```
 
-It seems like applying a correlation filter of 0.7 could be a good idea.
+The 'corr_.7' model configuration only uses 60 predictors (after
+removal of highly correlated predictors), hence it only estimates
+61 coefficients. In contrast the 'baseline' model uses all predictors 
+(except the two variables with zero variances) and estimates 115
+coefficients in total making it a much more complex model (by means of
+a higher variance) and more prone to the risk of overfitting.
+
+Overall it seems like applying a correlation filter with a correlation
+threshold value of 0.7 as part of the data preprocessing pipeline could
+be a good idea.
 
 ### Dimensionality reduction with PCA
 
-Now, let's try a different approach and apply Principal Component Analysis for
-dimensionality reduction instead of a correlation filter. I do this by tweaking the
-initial recipe once again. Before actually conducting PCA the features are 
-centered and scale, which is completely standard.
+Another approach to dealing with highly correlated predictors is
+to apply a Principal Component Analysis transformation of the
+predictors in order to reduce the dimensions of data set. You can read
+more about the PCA technique [here](https://www-bcf.usc.edu/~gareth/ISL/ISLR%20First%20Printing.pdf).
+
+This approach can be tested by tweaking my initial data preprocessing
+recipe once again with a couple of additional steps. Before actually 
+conducting PCA features are centered and scale. This is completely
+standard. 
+
+For the PCA transformation I vary the 'threshold' value, which
+is the fraction of the total variance of the predictors that should be
+covered by the components. The higher the value of 'threshold', the
+higher the number of components used.
 
 ```{r}
-# extend recipe with centering and scaling steps.
+# Extend recipe with centering and scaling steps.
 rec_center_scale <- initial_recipe %>%
   step_center(all_predictors()) %>%
   step_scale(all_predictors())
 
-# add model specifications with pca for dimensionality reduction.
+# Add model specifications with pca for dimensionality reduction.
 models <- models %>%
   add_model(model_name = "pca_.75", 
             x = rec_center_scale %>%
@@ -258,38 +291,49 @@ models <- models %>%
               step_pca(all_predictors(), threshold = .95))
 ```
 
-Train new models and display results.
+Let us train the new model configurations and display results.
 
 ```{r}
 models <- train(models)
 models$model_fits %>% caret::resamples(.) %>% bwplot(.)
 ```
 
-How many components were used for the different models?
-  
-  ```{r}
+Applying a data preprocessing pipeline with a PCA transformation
+capturing 95 pct. of the total variance of the set of predictors
+actually returns the highest resampled median value of AUC.
+
+You can look up, how many principal components that were
+used in the different model configurations in order to account
+for the desired amount of total variance of the predictors.
+
+```{r}
 models$model_fits[c("pca_.75", "pca_.85", "pca_.95")] %>%
   map(pluck(c("recipe", "term_info", "role"))) %>%
   map_int(~ sum(.x == "predictor"))
 ```
 
+To summarize, adding a PCA transformation or a correlation filter
+to the data preprocessing pipeline seem like good ways of
+dealing with the "collinearity clusters" in the data set.
+
 ## Conclusions
 
 * Experimenting with the data preprocessing pipeline can be seen as part of the
-model tuning process.
-* These experiments can be conducted easily using R packages`recipes` and `caret` in
-combination with `modelgrid`.
+model tuning process. Parameters of the data preprocessing pipeline can be thought
+of as tuning parameters.
+* These kinds of experiments can be organized and conducted easily using R packages
+`recipes` and `caret` in combination with `modelgrid`.
 
 ## What's next?
 
 I have been thinking about a good way to extend the functionality of `modelgrid` further
 in order to parametrize experiments with the parameters of the data preprocessing
-pipeline. But actually I am under the impression, that others are working on 
-developing similar functionality for tuning the parameters of the data preprocessing
-pipeline, but am I wrong here?
+pipeline. But actually I was under the impression, that others are working on 
+developing similar functionality for tuning parameters of the data preprocessing
+pipeline. Am I wrong here?
   
-  Also I want `modelgrid` to support `parsnip` and be able to expose models in 
-a more 'tidy' way.
+Also I want to extend `modelgrid` to support `parsnip`. Furthermore I want `modelgrid`
+to be able to expose models in a more 'tidy' way.
 
 Best,
 smaakagen
