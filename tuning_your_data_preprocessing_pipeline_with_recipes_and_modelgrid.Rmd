@@ -9,18 +9,15 @@ library(magrittr)
 library(purrr)
 ```
 
-## Data preprocessing is an integral part of a model configuration
+## Data preprocessing - an integral part of a model configuration
 
-Model tuning is not just a matter of tuning the internal hyperparameters
-of an algorithm. Data preprocessing is an integral part of the model development
-workflow. It is therefore just as relevant to experiment with different
-data preprocessing options, and hence the process of choosing the data preprocessing
-pipeline can be thought of as part of the model tuning just as well. I want to
-emphasize this point, even though it is obvious, because it is often overlooked.
+Model tuning is not just a matter of tuning the hyperparameters of an algorithm. 
+Since data preprocessing is also an integral part of the model development
+workflow, it is just as relevant to experiment with the data preprocessing pipeline.
+When "tuning" a model, the data preprocessing pipeline should therefore also be tuned.
 
 In this post I will go through, how experiments with data preprocessing 
-can be organized within a model development workflow in a structured way -
- using a minimum of code. In a sense what I will attempt to do is to "tune" the 
+can be organized. In a sense what I will attempt to do is to "tune" the 
 data preprocessing building stones of a model configuration.
 
 The following packages (all available on CRAN) will be applied in combination.
@@ -63,8 +60,8 @@ segmented from the well segmented cells.
 
 First, let us take a quick look at the data. We will do that by inspecting the between-predictor
 correlations of the predictors expressed by a correlation matrix of the 
-training data set. The variables are grouped according to their mutual
-correlations with a hierarchical clustering technique.
+training data set. The variables are grouped adjacent to each other according to their mutual
+correlations.
 
 ```{r message = FALSE, warning = FALSE}
 # Extract training data.
@@ -86,12 +83,12 @@ predictors %>%
   corrplot(., order = "hclust", tl.cex = .35)
 ```
 
-From the graph it seems, that there are groups of predictors, that have strong 
+From the graph, it seems that there are groups of predictors, that have strong 
 positive correlations (dark blue).
 
 There can be good reasons for avoiding variables, that are highly correlated, some
 of them being (as stated in [**'Applied Predictive Modelling'**](http://appliedpredictivemodeling.com/)):
-
+  
 * Redundant/highly correlated predictors often add more complexity to the model
 than information they provide to the model
 * Mathematical disadvantages: can result in very unstable models (high variance), 
@@ -133,7 +130,7 @@ tidy(prep_rec, 1)
 
 In order to organize and structure my experiments with different data 
 preprocessing pipelines I apply my [`modelgrid`](https://github.com/smaakage85/modelgrid) 
-package, that offers [a framework for constructing, training and managing multiple
+package, that offers [a framework for constructing, training and managing multiple 
 `caret` models](http://smaakage85.netlify.com/2018/07/14/modelgrid-a-framework-for-creating-managing-and-training-multiple-models/).
 
 `modelgrid` separates the specification of a(ny number of) `caret` model(s) from
@@ -165,14 +162,14 @@ models <-
     trControl = trainControl(method = "cv",
                              number = 5,
                              summaryFunction = twoClassSummary,
-                             classProbs = TRUE),
+                            classProbs = TRUE),
     metric = "ROC",
     method = "glm",
     family = binomial(link = "logit")
   )
 ```
 
-Now we are ready to add individual model specifications, each with their own
+We are now ready to add individual model specifications, each with their own
 data preprocessing pipeline to the model grid.
 
 ### Adding the first model specifications to the model grid
@@ -193,7 +190,7 @@ approach to dealing with highly correlated predictors.
 It removes the predictors with the highest between-predictor correlations one at
 the time, until all between-predictor correlations are below some critical threshold.
 
-In order to so I extend my initial recipe with an additional step, that applies
+In order to do so, I extend my initial recipe with an additional step, that applies
 the correlation filter. Furthermore I will try out different values for the 
 between-predictor correlation threshold value of the filter, essentially
 treating it as a hyperparameter.
@@ -211,8 +208,8 @@ models <- models %>%
               step_corr(all_predictors(), threshold = .9))
 ```
 
-The construction of these model specifications can - 
-and indeed should - be parametrized. Especially if you want to try
+The construction of these model specifications can - and indeed 
+should - be parametrized. Especially if you want to try
 out a wider range of values for the 'threshold' parameter than just 
 the three, that I have denoted here.
 
@@ -240,16 +237,16 @@ with a correlation filter (if any)).
 
 ```{r}
 models$model_fits %>%
-map(pluck(c("recipe", "term_info", "role"))) %>%
-map_int(~ sum(.x == "predictor"))
+  map(pluck(c("recipe", "term_info", "role"))) %>%
+  map_int(~ sum(.x == "predictor"))
 ```
 
 The 'corr_.7' model configuration only uses 60 predictors (after
 removal of highly correlated predictors), hence it only estimates
 61 coefficients. In contrast the 'baseline' model uses all predictors 
 (except the two variables with zero variances) and estimates 115
-coefficients in total making it a much more complex model (by means of
-a higher variance) and more prone to the risk of overfitting.
+coefficients in total making it a much more complex model (by means 
+of a higher variance) and more prone to the risk of overfitting.
 
 Overall it seems like applying a correlation filter with a correlation
 threshold value of 0.7 as part of the data preprocessing pipeline could
@@ -264,7 +261,7 @@ more about the PCA technique [here](https://www-bcf.usc.edu/~gareth/ISL/ISLR%20F
 
 This approach can be tested by tweaking my initial data preprocessing
 recipe once again with a couple of additional steps. Before actually 
-conducting PCA, features are centered and scale. This is completely
+conducting PCA, features are centered and scaled. This is completely
 standard. 
 
 For the PCA transformation I vary the 'threshold' value, which
@@ -291,7 +288,7 @@ models <- models %>%
               step_pca(all_predictors(), threshold = .95))
 ```
 
-Let us train the new model configurations and display results.
+Let us train the new model configurations and display the results.
 
 ```{r message = FALSE, warning = FALSE}
 models <- train(models)
@@ -327,17 +324,14 @@ of as tuning parameters.
 ## What's next?
 
 I have been thinking about how to extend the functionality of `modelgrid` further
-in order to parametrize experiments with the parameters of the data preprocessing
+in order to:
+
+* Parametrize experiments with the parameters of the data preprocessing
 pipeline. But actually I was under the impression, that others are working on 
 developing similar functionality for tuning parameters of the data preprocessing
-pipeline. Am I wrong here?
-  
-Also I want to extend `modelgrid` to support `parsnip`. Furthermore I want `modelgrid`
-to be able to expose models in a more 'tidy' way.
+pipeline. Am I wrong here? 
+* Support `parsnip`.
+* To expose models and model configurations from a model grid in a more 'tidy' way.
 
 Best,
 smaakagen
-
-
-
-
